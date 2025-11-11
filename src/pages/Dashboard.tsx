@@ -4,7 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Car, ParkingCircle, Clock, User } from "lucide-react";
-
+import useWebSocket from 'react-use-websocket';
+import { useState } from 'react';
+import { useEffect } from "react";
 
 interface Spot {
     id: string
@@ -16,17 +18,51 @@ interface Spot {
     plate: string,
 }
 
+function useWebsocketSpots() {
+  const [vagas, setVagas] = useState<Record<string, any>>({});
+
+  const websocketOptions = {
+    shouldReconnect: () => true,
+    reconnectInterval: 2000,
+  };
+
+  const { lastMessage } = useWebSocket('ws://localhost:8000/api/plate/ws', websocketOptions);
+
+  useEffect(() => {
+    if (lastMessage) {
+      try {
+        const data = JSON.parse(lastMessage.data);
+        if (data.id) {
+          setVagas(prev => ({
+            ...prev,
+            [data.id]: {
+              ...prev[data.id],
+              ...data,
+            },
+          }));
+          console.log("Atualização WS recebida:", data);
+        }
+      } catch (err) {
+        console.error("Erro ao parsear mensagem WS:", err);
+      }
+    }
+  }, [lastMessage]);
+
+  return vagas;
+}
+
+
 function SpotCard({ spot }: { spot: Spot }) {
     const isLivre = spot.status === "Livre";
     const isReserved = spot.isReserved === "Reservada";
 
     const statusColor = isLivre
         ? "bg-green-500/90 text-white"
-        : "bg-red-500/90 text-white";
+        : "bg-blue-500/90 text-white";
 
     const reserveColor = isReserved
         ? "bg-amber-500/90 text-white"
-        : "bg-blue-600/90 text-white";
+        : "bg-green-600/90 text-white";
 
     return (
         <Card className="hover:shadow-lg hover:scale-[1.01] transition-all duration-200">
@@ -88,7 +124,7 @@ export default function Dashboard() {
             sector: "Setor A",
             status: "Livre",
             reservationName: 'null',
-            isReserved: "Livre",
+            isReserved: "Não reservado",
             plate: 'null',
         },
         {
@@ -109,7 +145,18 @@ export default function Dashboard() {
             isReserved: "Reservada",
             plate: "ABC-1234",
         },
+         {
+            id: '4',
+            name: "Vaga 04",
+            sector: "Setor A",
+            status: "Ocupado",
+            reservationName: "Maria Amanda",
+            isReserved: "Reservada",
+            plate: "LLLNLNN",
+        },
     ];
+
+    const vagasWebsocket = useWebsocketSpots();
 
     return (
         <>
@@ -118,10 +165,20 @@ export default function Dashboard() {
             </PageHeader>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                {spots.map((spot) => (
-                    <SpotCard key={spot.id} spot={spot} />
-                ))}
+                {spots.map((spot) => {
+                const vagaWS = vagasWebsocket[spot.id] || {};
+                const spotAtualizado = {
+                    ...spot,
+                    status: vagaWS.status || spot.status,
+                    plate: vagaWS.plate_ocr || spot.plate,
+                    plate_db: vagaWS.plate_db,
+                    similaridade: vagaWS.valid?.similaridade_pct,
+                };
+                return <SpotCard key={spot.id} spot={spotAtualizado} />;
+                })}
             </div>
+
+                
         </>
     );
 }

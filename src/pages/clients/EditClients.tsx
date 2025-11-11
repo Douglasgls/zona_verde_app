@@ -4,26 +4,32 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { ClientForm, ClientFormValues } from "./FormClients";
+const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
 
 interface DialogEditClientProps {
-  client: ClientFormValues & { id: string };
+  onClientUpdated: () => void;
+  client: ClientFormValues & { id: string; };
 }
 
-export function DialogEditClient({ client }: DialogEditClientProps) {
+export function DialogEditClient({ client, onClientUpdated }: DialogEditClientProps) {
   const [open, setOpen] = useState(false);
 
   async function handleSubmit(values: ClientFormValues) {
     try {
-      const response = await fetch(`/api/clients/${client.id}`, {
-        method: "PUT",
+      const response = await fetch(`${BASE_URL_API}/client/${client.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
 
-      if (!response.ok) throw new Error("Erro ao atualizar");
-
-      toast.success("Cliente atualizado!");
-      setOpen(false);
+      if (response.ok) {
+          toast.success("Cliente atualizado com sucesso!");
+          onClientUpdated(); 
+          setOpen(false); 
+        } else {
+          toast.error("Falha ao atualizar cliente");
+          setOpen(false);
+        }
     } catch {
       toast.error("Falha ao atualizar cliente");
     }

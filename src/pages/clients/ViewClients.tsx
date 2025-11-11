@@ -11,7 +11,7 @@ interface ClientFormValues {
     id: string;
     name: string;
     plate: string;
-    telephone: string;
+    phone: string;
     email: string;
 }
 
@@ -58,7 +58,7 @@ export function DialogViewClients({ client }: DialogViewClientsProps) {
 
                 <div className="grid gap-3">
                     <Label htmlFor="localization">Telefone</Label>
-                    <Input id="localization" value={client.telephone} readOnly />
+                    <Input id="localization" value={client.phone} readOnly />
                 </div>
 
                 <div className="grid gap-3">

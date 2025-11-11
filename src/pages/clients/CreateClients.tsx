@@ -5,23 +5,34 @@ import { toast } from "sonner";
 import { ClientForm, ClientFormValues } from "./FormClients";
 import {PlusCircle } from "lucide-react";
 
-export function DialogCreateClients() {
+const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+
+interface DialogCreateClientsProps {
+    onClientCreated: () => void;
+}
+
+export function DialogCreateClients({ onClientCreated }: DialogCreateClientsProps) {
   const [open, setOpen] = useState(false);
 
   async function handleSubmit(values: ClientFormValues) {
     try {
-      const response = await fetch("/api/clients", {
+      const response = await fetch(`${BASE_URL_API}/client`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
 
-      if (!response.ok) throw new Error("Erro ao criar cliente");
-
-      toast.success("Cliente criado com sucesso!");
-      setOpen(false);
-    } catch {
-      toast.error("Falha ao criar cliente. Tente novamente.");
+      if (response.ok){
+        toast.success("Cliente criado com sucesso!");
+        setOpen(false);
+        onClientCreated();
+      }else{
+        const errorData = await response.json();
+        console.error("Erro ao criar cliente:", errorData); 
+        throw new Error(errorData.message);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Falha ao criar cliente. Tente novamente.");
     }
   }
 

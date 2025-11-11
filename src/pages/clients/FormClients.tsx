@@ -14,9 +14,13 @@ const deviceSchema = z.object({
     message: "A placa deve ser do formato válido. Ex: LLLNLNN",
   }).min(7, { message: "A placa deve ter exatamente 7 digitos." }),
 
-  telephone: z.string().min(5, { message: "Informe um telefone válido." }),
+  phone: z.string().min(5, { message: "Informe um telefone válido." }),
 
   email: z.string().min(3, { message: "O email deve ter pelo menos 3 caracteres." }),
+
+  cpf: z.string().min(11, 
+    { message: "O CPF deve ter apenas 11 caracteres." }).max(11, 
+    { message: "O CPF deve ter apenas 11 caracteres." }),
 
 });
 
@@ -36,8 +40,9 @@ export function ClientForm({ defaultValues, onSubmit, submitLabel = "Salvar" }: 
     defaultValues: defaultValues ?? {
       name: "",
       plate: "",
-      telephone: "",
+      phone: "",
       email: "",
+      cpf: "",
     },
   });
 
@@ -76,11 +81,21 @@ export function ClientForm({ defaultValues, onSubmit, submitLabel = "Salvar" }: 
             </div>
 
             <div className="grid gap-3">
-              <Label htmlFor="telephone">Telefone</Label>
-              <Input id="telephone" placeholder="(99) 99999-9999" {...form.register("telephone")} />
-              {form.formState.errors.telephone && (
+              <Label htmlFor="phone">Telefone</Label>
+              <Input id="phone" placeholder="(99) 99999-9999" {...form.register("phone")} />
+              {form.formState.errors.phone && (
                 <p className="text-sm font-medium text-red-500">
-                  {form.formState.errors.telephone.message}
+                  {form.formState.errors.phone.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-3">
+              <Label htmlFor="cpf">CPF</Label>
+              <Input id="cpf" placeholder="00000000000" {...form.register("cpf")} />
+              {form.formState.errors.cpf && (
+                <p className="text-sm font-medium text-red-500">
+                  {form.formState.errors.cpf.message}
                 </p>
               )}
             </div>

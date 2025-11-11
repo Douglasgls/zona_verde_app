@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard de Vagas</title>
+</head>
+<body style="font-family: sans-serif;">
+  <h1>Vagas</h1>
+  <div id="vagas"></div>
+
+  <script>
+    const vagas = {};
+    const vagasDiv = document.getElementById("vagas");
+
+    const ws = new WebSocket("ws://localhost:8000/api/plate/ws");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      vagas[data.vaga] = data.estado;
+      render();
+    };
+
+    function render() {
+      vagasDiv.innerHTML = "";
+      for (const [vaga, estado] of Object.entries(vagas)) {
+        const el = document.createElement("div");
+        el.textContent = `Vaga ${vaga}: ${estado}`;
+        vagasDiv.appendChild(el);
+      }
+    }
+  </script>
+</body>
+</html>

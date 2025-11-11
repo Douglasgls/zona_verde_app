@@ -12,38 +12,50 @@ import {
 } from "@/components/ui/dialog"
 import { Trash } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
+
+const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+
+interface DialogDeleteClientsProps {
+    client_id: string;
+    onClientDeleted: () => void;
+}
 
 
+export function DialogDeleteClients( { client_id, onClientDeleted }: DialogDeleteClientsProps ) {
 
-export function DialogDeleteClients( { clientId }: { clientId: string } ) {
+  const [open, setOpen] = useState(false);
+  async function handleDelete(event: React.FormEvent) {
+    event.preventDefault();
 
-   async function handleDelete(event: React.FormEvent) {
-      try {
-      const response = await fetch("/api/clients", {
+    try {
+      const response = await fetch(`${BASE_URL_API}/client/${client_id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: clientId }),
       });
 
-      if (!response.ok) throw new Error("Erro ao deletar cliente");
-
-      toast.success("Cliente deletado com sucesso!");
+      if (response.ok) {
+        toast.success("Cliente deletado com sucesso!");
+        onClientDeleted();
+        setOpen(false);
+      }else{
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao deletar cliente");
+      }
     } catch {
       toast.error("Falha ao deletar cliente. Tente novamente.");
     }
    } 
 
   return (
-    <Dialog>
-      <form onSubmit={handleDelete}>
+    <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => console.log("Editar fatura INV001")}
-                className="h-8 w-8"
+            className="h-8 w-8"
             >
-                <Trash className="h-4 w-4" /> 
+              <Trash className="h-4 w-4" /> 
             </Button>
         </DialogTrigger>
         
@@ -56,12 +68,11 @@ export function DialogDeleteClients( { clientId }: { clientId: string } ) {
           </DialogHeader>
           <DialogFooter className="gap-4">
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">Cancelar</Button>
             </DialogClose>
-            <Button type="submit" className="bg-red-500 text-white">Deletar</Button>
+              <Button type="submit" className="bg-red-500 text-white" onClick={handleDelete}>Deletar</Button>
           </DialogFooter>
         </DialogContent>
-      </form>
     </Dialog>
   )
 }
