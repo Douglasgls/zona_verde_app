@@ -16,51 +16,62 @@ import { DialogViewDevices } from "./ViewDevices";
 
 import { Badge } from "@/components/ui/badge";
 import { Circle, Power, WifiOff } from "lucide-react";
+import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
+const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+
+interface Device {
+  id: number;
+  onecode: string;
+  topic_subscribe: string;
+  spot_id: number;
+}
+
+interface Spot {
+  id: number;
+  spot: string;
+  sector: string;
+}
 
 export default function Devices() {
-  const devices = [
-    {
-      id: "1",
-      name: "Câmera Entrada 1",
-      onecode: "esp32cam_A1B2",
-      localization: "Bloco A - Vaga 01",
-      mqtt_topic: "cameras/vaga01",
-      status: "online",
-      lastUpdate: "23/10/2025 14:25",
-    },
-    {
-      id: "2",
-      name: "Câmera Saída 2",
-      onecode: "esp32cam_C3D4",
-      localization: "Bloco B - Saída Principal",
-      mqtt_topic: "cameras/saida02",
-      status: "offline",
-      lastUpdate: "23/10/2025 13:40",
-    },
-  ];
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [spots, setSpots] = useState<Spot[]>([]);
+  const [refresh, setRefresh] = useState(0);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "online":
-        return (
-          <Badge className="bg-green-500/90 text-white inline-flex items-center gap-1">
-            <Power className="w-4 h-4" /> Online
-          </Badge>
-        );
-      case "offline":
-        return (
-          <Badge className="bg-red-500/90 text-white inline-flex items-center gap-1">
-            <WifiOff className="w-4 h-4" /> Offline
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-amber-500/90 text-white inline-flex items-center gap-1">
-            <Circle className="w-4 h-4" /> Desconhecido
-          </Badge>
-        );
+  async function fetchDevices() {
+    try {
+      const response = await fetch(`${BASE_URL_API}/devices`);
+      if (!response.ok) throw new Error("Erro ao carregar dispositivos");
+      const data = await response.json();
+      setDevices(data);
+    } catch (error: any) {
+      toast.error(error.message || "Falha ao carregar dispositivos.");
     }
+  }
+
+  async function fetchSpots() {
+    try {
+      const response = await fetch(`${BASE_URL_API}/spots`);
+      if (!response.ok) throw new Error("Erro ao carregar vagas");
+      const data = await response.json();
+      setSpots(data);
+      console.log("Vagas carregadas:", data);
+    } catch (error: any) {
+      toast.error(error.message || "Falha ao carregar vagas.");
+    }
+  }
+
+  useEffect(() => {
+    fetchDevices();
+    fetchSpots();
+  }, [refresh]);
+
+  const handleRefresh = () => setRefresh((prev) => prev + 1);
+
+  const getSpotName = (spotId: number) => {
+    const spot = spots.find((s) => s.id === spotId);
+    return spot ? `Setor ${spot.sector} - Vaga ${spot.spot}` : "Sem vaga associada";
   };
 
   return (
@@ -70,7 +81,7 @@ export default function Devices() {
       </PageHeader>
 
       <div className="flex justify-between items-center py-6">
-        <DialogCreateDevice />
+        <DialogCreateDevice onDeviceCreated={handleRefresh} />
       </div>
 
       <div className="rounded-md border shadow-sm overflow-hidden">
@@ -78,71 +89,77 @@ export default function Devices() {
           <TableCaption>Lista de dispositivos conectados ao sistema.</TableCaption>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead className="w-[160px]">Nome</TableHead>
               <TableHead className="hidden sm:table-cell">Código</TableHead>
-              <TableHead className="hidden md:table-cell">Localização</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="hidden lg:table-cell text-center">Último envio</TableHead>
+              <TableHead className="hidden md:table-cell ">Localização</TableHead>
+              <TableHead className="hidden lg:table-cell text-center">Tópico MQTT</TableHead>
               <TableHead className="text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
-            {devices.map((device) => (
-              <TableRow
-                key={device.id}
-                className="hover:bg-muted/20 transition-colors cursor-pointer"
-              >
-                <TableCell className="font-medium">{device.name}</TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">
-                  {device.onecode}
-                </TableCell>
-                <TableCell className="hidden md:table-cell text-muted-foreground">
-                  {device.localization}
-                </TableCell>
-                <TableCell className="text-center">{getStatusBadge(device.status)}</TableCell>
-                <TableCell className="hidden lg:table-cell text-center text-muted-foreground">
-                  {device.lastUpdate}
-                </TableCell>
-
-                <TableCell className="text-center">
-                  <div className="flex justify-center items-center gap-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DialogViewDevices device={device} />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Visualizar detalhes</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DialogEditDevice device={device}/>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Editar dispositivo</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DialogDeleteDevices/>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Excluir dispositivo</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
+            {devices.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  Nenhum dispositivo cadastrado.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              devices.map((device) => (
+                <TableRow
+                  key={device.id}
+                  className="hover:bg-muted/20 transition-colors cursor-pointer"
+                >
+                  <TableCell className="hidden sm:table-cell text-muted-foreground">
+                    {device.onecode}
+                  </TableCell>
+
+                  <TableCell className="hidden md:table-cell text-muted-foreground">
+                    {getSpotName(device.spot_id)}
+                  </TableCell>
+
+                  <TableCell className="hidden lg:table-cell text-muted-foreground text-center">
+                    {device.topic_subscribe}
+                  </TableCell>
+
+                  <TableCell className="text-center">
+                    <div className="flex justify-center items-center gap-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DialogViewDevices device={{ ...device, id: String(device.id) }} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Visualizar detalhes</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DialogEditDevice device={device} onDeviceUpdated={handleRefresh} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar dispositivo</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DialogDeleteDevices deviceId={device.id} onDeviceDeleted={handleRefresh} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Excluir dispositivo</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

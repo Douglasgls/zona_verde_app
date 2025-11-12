@@ -1,45 +1,3 @@
-// import { useState } from "react";
-// import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-// import { Button } from "@/components/ui/button";
-// import { DeviceForm, DeviceFormValues } from "./FormDevices";
-// import { toast } from "sonner";
-
-// export function DialogCreateDevice() {
-//   const [open, setOpen] = useState(false);
-
-//   async function handleSubmit(values: DeviceFormValues) {
-//     try {
-//       const response = await fetch("/api/devices", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify(values),
-//       });
-
-//       if (!response.ok) throw new Error("Erro ao criar dispositivo");
-
-//       toast.success("Dispositivo criado com sucesso!");
-//       setOpen(false);
-//     } catch {
-//       toast.error("Falha ao criar dispositivo");
-//     }
-//   }
-
-//   return (
-//     <Dialog open={open} onOpenChange={setOpen}>
-//       <DialogTrigger asChild>
-//         <Button>Adicionar dispositivo</Button>
-//       </DialogTrigger>
-//       <DialogContent>
-//         <DialogHeader>
-//           <DialogTitle>Cadastrar dispositivo</DialogTitle>
-//         </DialogHeader>
-
-//         <DeviceForm onSubmit={handleSubmit} />
-//       </DialogContent>
-//     </Dialog>
-//   );
-// }
-
 import { useState } from "react";
 import {
   Dialog,
@@ -54,26 +12,37 @@ import { DeviceForm, DeviceFormValues } from "./FormDevices";
 import { toast } from "sonner";
 import { Loader2, PlusCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Toast } from "@kobalte/core/*";
 
-export function DialogCreateDevice() {
+const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+
+interface DialogCreateDeviceProps {
+    onDeviceCreated: () => void;
+}
+
+export function DialogCreateDevice({ onDeviceCreated }: DialogCreateDeviceProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(values: DeviceFormValues) {
     setLoading(true);
     try {
-      const response = await fetch("/api/devices", {
+      const response = await fetch(`${BASE_URL_API}/devices`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
 
-      if (!response.ok) throw new Error("Erro ao criar dispositivo");
-
-      toast.success("✅ Dispositivo criado com sucesso!");
-      setOpen(false);
+      if (response.ok){
+        toast.success(" Dispositivo criado com sucesso!");
+        setOpen(false);
+        onDeviceCreated();
+      }else{
+        const errorData = await response.json();
+        throw new Error(errorData.message)
+      }
     } catch (error: any) {
-      toast.error(error.message || "❌ Falha ao criar dispositivo");
+      toast.error(error.message || "Falha ao criar dispositivo");
     } finally {
       setLoading(false);
     }
