@@ -23,13 +23,11 @@ interface Reservation {
   client_id: string;
   spot_id: string;
   day: string;
-  status: string;
-  status_spot: string;
 }
 
 interface Spots {
   id: string;
-  spot: string;
+  number: string;
   sector: string;
 }
 
@@ -128,8 +126,7 @@ export default function Reservations() {
             <TableRow className="bg-muted/30">
              <TableHead className="w-[160px]">Cliente</TableHead>
              <TableHead className="w-[160px]">Placa</TableHead>
-              <TableHead >Status</TableHead>
-              <TableHead className="text-center hidden sm:table-cell">Vaga</TableHead>
+              <TableHead className="text-center hidden sm:table-cell">Localização</TableHead>
               <TableHead className="text-center hidden sm:table-cell">Data</TableHead>
               <TableHead className="text-center">Ações</TableHead>
             </TableRow>
@@ -147,13 +144,8 @@ export default function Reservations() {
                 <TableCell className="font-medium">
                   {clientMap[String(reservation.client_id)]?.plate}
                 </TableCell>
-                <TableCell className="font-medium">{reservation.status}</TableCell>
-                <TableCell className="text-center hidden sm:table-cell text-muted-foreground">
-                  {spotMap[String(reservation.spot_id)]?.spot}-  
-                  {spotMap[String(reservation.spot_id)]?.sector}
-                </TableCell>
+                <TableCell className="text-center hidden sm:table-cell">Setor {spotMap[String(reservation.spot_id)]?.sector} - Vaga {spotMap[String(reservation.spot_id)]?.number}</TableCell>
                 <TableCell className="text-center hidden sm:table-cell text-muted-foreground">{dateFormat(reservation.day)}</TableCell>
-
                 <TableCell className="text-center">
                   <div className="flex justify-center items-center gap-2">
                     <TooltipProvider>

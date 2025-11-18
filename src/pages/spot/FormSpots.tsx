@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const spotSchema = z.object({
-  spot: z.string(),
+  number: z.string(),
   sector: z.string()
 });
 
@@ -26,7 +26,7 @@ export function SpotForm({ defaultValues, onSubmit, submitLabel = "Salvar" }: Sp
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: defaultValues ?? {
-      spot: "",
+      number: "",
       sector: ""
     },
   });
@@ -46,11 +46,11 @@ export function SpotForm({ defaultValues, onSubmit, submitLabel = "Salvar" }: Sp
       <div className="grid gap-4">
 
           <div className="grid gap-3">
-              <Label htmlFor="spot">Vaga</Label>
-              <Input id="spot" placeholder="02" {...form.register("spot")} />
-              {form.formState.errors.spot && form.formState.touchedFields.spot && (
+              <Label htmlFor="number">Vaga</Label>
+              <Input id="number" placeholder="02" {...form.register("number")} />
+              {form.formState.errors.number && form.formState.touchedFields.number && (
                 <p className="text-sm font-medium text-red-500">
-                  {form.formState.errors.spot.message}
+                  {form.formState.errors.number.message}
                 </p>
               )}    
             </div>

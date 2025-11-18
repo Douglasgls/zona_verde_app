@@ -26,8 +26,6 @@ const reservationSchema = z.object({
   client_id: z.string().min(1, "Selecione um cliente"),
   spot_id: z.string().min(1, "Selecione uma vaga"),
   day: z.string().min(1, "Informe o dia da reserva"),
-  status: z.string().min(1, "Informe o status da reserva"),
-  status_spot: z.string().min(1, "Informe o status da vaga"),
 });
 
 export type ReservationFormValues = z.infer<typeof reservationSchema>;
@@ -45,7 +43,7 @@ interface Client {
 
 interface Spot {
   id: string;
-  spot: string;
+  number: string;
   sector: string;
 }
 
@@ -61,9 +59,7 @@ export function ReservationForm({
     defaultValues: defaultValues ?? {
       client_id: "",
       spot_id: "",
-      day: "",
-      status: "ATIVO",
-      status_spot: "EM_USO",
+      day: ""
     },
   });
 
@@ -154,7 +150,7 @@ export function ReservationForm({
                     <SelectContent>
                       {spots.map((spot) => (
                         <SelectItem key={spot.id} value={String(spot.id)}>
-                          {spot.spot} - {spot.sector}
+                          {spot.number} - {spot.sector}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -183,41 +179,6 @@ export function ReservationForm({
                 {form.formState.errors.day.message}
               </p>
             )}
-          </div>
-
-          {/* STATUS */}
-          <div className="grid gap-3">
-            <Label htmlFor="status">Status da Reserva</Label>
-            <Select
-              onValueChange={(value) => form.setValue("status", value)}
-              defaultValue={form.getValues("status")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ATIVO">Ativo</SelectItem>
-                <SelectItem value="CANCELADO">Cancelado</SelectItem>
-                <SelectItem value="FINALIZADO">Finalizado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* STATUS DA VAGA */}
-          <div className="grid gap-3">
-            <Label htmlFor="status_spot">Status da Vaga</Label>
-            <Select
-              onValueChange={(value) => form.setValue("status_spot", value)}
-              defaultValue={form.getValues("status_spot")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o status da vaga" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EM_USO">Em uso</SelectItem>
-                <SelectItem value="VAZIO">Livre</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 

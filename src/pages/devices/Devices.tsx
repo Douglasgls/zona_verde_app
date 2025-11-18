@@ -30,7 +30,7 @@ interface Device {
 
 interface Spot {
   id: number;
-  spot: string;
+  number: string;
   sector: string;
 }
 
@@ -71,7 +71,7 @@ export default function Devices() {
 
   const getSpotName = (spotId: number) => {
     const spot = spots.find((s) => s.id === spotId);
-    return spot ? `Setor ${spot.sector} - Vaga ${spot.spot}` : "Sem vaga associada";
+    return spot ? `Setor ${spot.sector} - Vaga ${spot.number}` : "Sem vaga associada";
   };
 
   return (

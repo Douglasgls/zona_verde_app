@@ -151,7 +151,7 @@ export type DeviceFormValues = z.infer<typeof deviceSchema>;
 
 interface Spot {
   id: number;
-  spot: number;
+  number: number;
   sector: string;
 }
 
@@ -215,7 +215,7 @@ export function DeviceForm({
               <SelectContent>
                 {spots.map((spot) => (
                   <SelectItem key={spot.id} value={spot.id.toString()}>
-                    {`Vaga ${spot.spot} - ${spot.sector}`}
+                    {`Vaga ${spot.number} - ${spot.sector}`}
                   </SelectItem>
                 ))}
               </SelectContent>

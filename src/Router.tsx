@@ -31,12 +31,12 @@ export const router = createHashRouter([
                 element: <Spots />,
             },
             {
-                path: "spotsDetails",
-                element: <SpotsDetails />,
-            },
-            {
                 path: "reservations",
                 element: <Reservations />,
+            },
+            {
+                path: "spotsDetails/:spotId",
+                element: <SpotsDetails />,
             }
         ],
     },

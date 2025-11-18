@@ -21,7 +21,7 @@ const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
 
 interface Spots {
     id: string;
-    spot: string;
+    number: string;
     sector: string;
 }
 
@@ -89,7 +89,7 @@ export default function Spots() {
                                 key={spot.id}
                                 className="hover:bg-muted/20 transition-colors cursor-pointer" 
                             >
-                                <TableCell className="font-medium">{spot.spot}</TableCell>
+                                <TableCell className="font-medium">{spot.number}</TableCell>
                                 <TableCell className="text-center hidden sm:table-cell text-muted-foreground">{spot.sector}</TableCell>
                               
                                 <TableCell className="text-center">
