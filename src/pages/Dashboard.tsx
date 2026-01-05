@@ -1,34 +1,39 @@
+import { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import useWebSocket from "react-use-websocket";
+import { toast } from "sonner";
+import { 
+  Car, ParkingCircle, Clock, User, Bell, GaugeCircle 
+} from "lucide-react";
+
 import { PageHeader, PageHeaderHeading } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "react-router-dom";
-import { Car, ParkingCircle, Clock, User,Bell, PlayIcon, Eye, Camera, GaugeCircle } from "lucide-react";
-import useWebSocket from "react-use-websocket";
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { create } from "zustand";
 
+// --- Configurações e Tipos ---
 const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+const BASE_URL_WS = import.meta.env.VITE_BASE_URL_WS;
+
+interface SpotsWS {
+  id: string;
+  status: string;
+  is_alert: boolean;
+  plate_ocr: string;
+  plate_db: string;
+  similarity: string;
+  current_status: string;
+  last_time: string;
+}
 
 interface Spot {
   id: number;
   number: number;
   sector: string;
   current_status: string;
-  status?: string | null;
-  clientName?: string | null;
-  clientId?: number | null;
-  plate?: string | null;
-  reservationId?: number | null;
-  isAlert?: boolean;
-  similaridade?: string | null;
-  plate_ocr?: string | null;
-}
-
-interface WsStore {
-  data: Record<number, SpotsWS>;
-  update: (id: number, payload: SpotsWS) => void;
+  status: string;
 }
 
 interface Client {
@@ -39,216 +44,207 @@ interface Client {
 
 interface Reservation {
   id: number;
-  day: string;
   client_id: number;
   spot_id: number;
 }
 
-interface SpotsWS {
-  id: string;
-  status: string;
-  is_alert: boolean;
-  plate_ocr: string;
-  plate_db: string;
-  valid: {
-    similaridade: string;
-  }
+// Tipo para a vaga já processada com dados de todas as fontes
+interface MergedSpot extends Spot {
+  plate: string | null;
+  plate_ocr: string | null;
+  similarity: string | null;
+  clientName: string | null;
+  isAlert: boolean;
+  clientId: number | null;
+  reservationId: number | null;
 }
 
+// --- Store com Persistência ---
 interface WsStore {
   data: Record<number, SpotsWS>;
   update: (id: number, payload: SpotsWS) => void;
 }
 
-export const useWsStore = create<WsStore>(set => ({
-  data: {},
-  update: (id, payload) =>
-    set(state => ({
-      data: {
-        ...state.data,
-        [id]: payload
-      }
-    }))
-}));
+export const useWsStore = create<WsStore>()(
+  persist(
+    (set) => ({
+      data: {},
+      update: (id, payload) =>
+        set((state) => ({
+          data: { ...state.data, [id]: payload },
+        })),
+    }),
+    {
+      name: "parking-ws-storage",
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
 
-function useWebsocketSpots() {
+// --- Hook de Lógica de Negócio ---
+function useParkingData() {
   const [clients, setClients] = useState<Client[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  
+  const { data: wsData, update } = useWsStore();
 
-  const { update } = useWsStore(); 
-  const wsData = useWsStore(state => state.data);
-
-  const { lastMessage } = useWebSocket("ws://localhost:8000/api/plate/ws", {
+  const { lastMessage } = useWebSocket(`${BASE_URL_WS}/plate/ws`, {
     shouldReconnect: () => true,
-    reconnectInterval: 2000
+    reconnectInterval: 3000
   });
 
-  async function fetchClientsAndSpots() {
+
+  const fetchData = async () => {
     try {
-      const [clientsRes, spotsRes] = await Promise.all([
+      const [cRes, sRes, rRes] = await Promise.all([
         fetch(`${BASE_URL_API}/client`),
-        fetch(`${BASE_URL_API}/spots`)
+        fetch(`${BASE_URL_API}/spots`),
+        fetch(`${BASE_URL_API}/reservations`),
       ]);
-
-      setClients(await clientsRes.json());
-      setSpots(await spotsRes.json());
-    } catch {
-      toast.error("Erro ao carregar dados");
+      
+      setClients(await cRes.json());
+      setSpots(await sRes.json());
+      setReservations(await rRes.json());
+    } catch (err) {
+      toast.error("Erro ao sincronizar dados com o servidor");
     }
-  }
+  };
 
-  async function fetchReservations() {
-    try {
-      const res = await fetch(`${BASE_URL_API}/reservations`);
-      if (!res.ok) throw new Error();
-      setReservations(await res.json());
-    } catch {
-      toast.error("Erro ao carregar reservas");
-    }
-  }
+  useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    fetchClientsAndSpots();
-    fetchReservations();
-  }, []);
-
-  useEffect(() => {
-    if (!lastMessage) return;
-
-    console.log("WS RECEBIDO BRUTO:", lastMessage.data);
-
-    try {
-      const parsed: SpotsWS = JSON.parse(lastMessage.data);
-      update(Number(parsed.id), parsed);
-    } catch (e) {
-      console.error("Erro ao parsear WS:", e);
+    if (lastMessage) {
+      try {
+        const parsed: SpotsWS = JSON.parse(lastMessage.data);
+        update(Number(parsed.id), parsed);
+      } catch (e) {
+        console.error("Erro no processamento do WebSocket", e);
+      }
     }
-  }, [lastMessage]);
+  }, [lastMessage, update]);
 
-  return { clients, spots, reservations, wsData };
+  // Memoriza a mesclagem para evitar re-cálculos desnecessários
+  const mergedSpots = useMemo(() => {
+    return spots.map((spot): MergedSpot => {
+      const reservation = reservations.find(r => r.spot_id === spot.id);
+      const client = reservation ? clients.find(c => c.id === reservation.client_id) : null;
+      const live = wsData[spot.id] || null;
+
+      console.log("LIVE DATA:", live);
+      return {
+        ...spot,
+        plate: client?.plate ?? null,
+        plate_ocr: live?.plate_ocr ?? null,
+        similarity: live?.similarity ?? null,
+        clientName: client?.name || (live ? "Visitante" : null),
+        isAlert: live?.is_alert ?? false,
+        clientId: reservation?.client_id ?? null,
+        reservationId: reservation?.id ?? null,
+        current_status: live?.current_status || spot.current_status
+      };
+    });
+  }, [spots, clients, reservations, wsData]);
+
+  return { mergedSpots };
 }
 
+// --- Sub-componentes ---
+const STATUS_COLORS: Record<string, string> = {
+  LIVRE: "bg-green-500 text-white",
+  RESERVADO: "bg-amber-500 text-white",
+  OCUPADO: "bg-blue-600 text-white", // Azul forte para presença física
+  DISPONIVEL: "bg-green-600 text-white",
+};
 
-
-function SpotCard({ spot }: { spot: Spot }) {
-  const statusColor =
-    spot.status === "LIVRE"
-      ? "bg-green-500 text-white"
-      : spot.status === "RESERVADO"
-      ? "bg-amber-500 text-white"
-      : "bg-gray-500 text-white";
-
-  const currentColor =
-    spot.current_status === "LIVRE"
-      ? "bg-green-500 text-white"
-      : spot.current_status === "OCUPADO"
-      ? "bg-blue-500 text-white"
-      : "bg-gray-500 text-white";
-
+function SpotCard({ spot }: { spot: MergedSpot }) {
   return (
     <Card className="hover:shadow-lg hover:scale-[1.01] transition-all duration-200">
       <CardHeader className="p-4">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl font-semibold">
+        <div className="flex flex-col gap-2 items-start w-full">
+          <CardTitle className="text-lg font-semibold leading-tight flex items-center flex-wrap gap-2">
             Vaga: {spot.number.toString().padStart(2, "0")}
-            <div className="text-sm text-muted-foreground">Setor: {spot.sector}</div>
+            <p className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+              Setor: {spot.sector}
+            </p>
           </CardTitle>
 
-          <div className="flex flex-col items-end px-2 py-2 space-y-2">
-            <div className="flex space-x-2">
-              <Badge className={`${statusColor} flex items-center`}>
-                <ParkingCircle className="w-4 h-4 mr-1" />
+            <div className="flex flex-wrap gap-2 w-full justify-start items-center">
+              <Badge className={STATUS_COLORS[spot.status] || STATUS_COLORS.MANUTENCAO}>
+                <ParkingCircle className="w-3 h-3 mr-1" />
                 {spot.status}
               </Badge>
 
-              <Badge className={`${currentColor} flex items-center`}>
-                <ParkingCircle className="w-4 h-4 mr-1" />
-                {spot.current_status}
+              <Badge className={`${STATUS_COLORS[spot.current_status] || "bg-gray-500"} border-none text-white`}>
+                <ParkingCircle className="w-3 h-3 mr-1" />
+                {spot.current_status || "DESCONHECIDO"}
               </Badge>
 
-              {
-                spot.isAlert && spot.status === "RESERVADO" && (
-                  <Badge className="bg-red-500 flex items-center text-white animate-pulse border-teal-50">
-                    <Bell className="w-4 h-4 mr-1" />
-                    {spot.similaridade}
-                  </Badge>
-                )
-              }
+              {spot.isAlert && (
+                <Badge className="bg-red-500 text-white animate-pulse">
+                  <Bell className="w-3 h-3 mr-1" />
+                  ALERTA
+                </Badge>
+              )}
             </div>
-          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 pt-0 space-y-3">
-        <div className="text-sm text-gray-500 py-2">
-          {spot.status === "LIVRE" ? (
-            <span className="flex items-center gap-1">
-              <Clock className="w-4 h-4" /> Livre
-            </span>
+      <CardContent className="p-4 pt-0 space-y-1">
+        <div className="text-sm text-muted-foreground min-h-[40px] flex items-center">
+          {spot.status === "LIVRE" && !spot.plate_ocr ? (
+            <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> Disponível</div>
           ) : (
-            <span className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              <strong>{spot.clientName || "—"}</strong>
-              <Car className="w-4 h-4 ml-2" />
-                <strong>{spot.plate || "—"}</strong>
-              <Camera className="w-4 h-4 ml-2" />
-                {spot?.plate_ocr}
-              <GaugeCircle className="w-4 h-4 ml-2" />
-                {spot?.similaridade}
-            </span>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <User className="w-4 h-4 text-primary" /> {spot.clientName}
+              </div>
+
+              
+              <div className="flex items-center gap-4 text-xs text-primary font-medium">
+                <span className="flex items-center gap-1"><Car className="w-4 h-4 " /> {spot.plate || "--"}</span>
+                {spot.similarity && (
+                  <>{ parseFloat(spot.similarity) < 60 ? (
+                      <span className="flex items-center gap-1 text-red-500 font-bold">
+                        <GaugeCircle className="w-4 h-4 text-primary" /> {spot.similarity}%
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-gray-400 font-bold">
+                        <GaugeCircle className="w-4 h-4 text-primary" /> {spot.similarity}%
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
-        <Button variant="outline" className="w-full relative">
-          Gerenciar Vaga
-          <Link
-            to={`/spotsDetails/${spot.id}?client_id=${spot.clientId ?? ""}&reservation_id=${spot.reservationId ?? ""}`}
-            className="absolute inset-0"
-          />
+        <Button variant="outline" className="w-full group relative" asChild>
+          <Link to={`/spotsDetails/${spot.id}?client_id=${spot.clientId ?? ""}&reservation_id=${spot.reservationId ?? ""}`}>
+            Gerenciar Vaga
+          </Link>
         </Button>
       </CardContent>
     </Card>
   );
 }
 
+// --- Componente Principal ---
 export default function Dashboard() {
-
-  const { spots, clients, reservations, wsData } = useWebsocketSpots();
-
-  const vagasComDados = spots.map((spot) => {
-    const reserva = reservations.find((r) => r.spot_id === spot.id);
-    const cliente = reserva ? clients.find((c) => c.id === reserva.client_id) : null;
-
-    const live = wsData[spot.id] || null;
-  
-
-    const clientName = cliente?.name || (live ? "Visitante" : null);
-    return {
-      ...spot,
-      status: spot.status,
-      current_status: spot.current_status,
-      plate: live?.plate_db ?? null,
-      plate_ocr: live?.plate_ocr ?? null,
-      similaridade: live?.valid?.similaridade ?? null,
-      clientName,
-      isAlert: live?.is_alert ?? false,
-      clientId: reserva?.client_id ?? null,
-      reservationId: reserva?.id ?? null
-    };
-  });
+  const { mergedSpots } = useParkingData();
 
   return (
-    <>
+    <div className="container mx-auto pb-8">
       <PageHeader>
-        <PageHeaderHeading>Visão Geral</PageHeaderHeading>
+        <PageHeaderHeading>Visão Geral do Estacionamento</PageHeaderHeading>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-        {vagasComDados.map((spot) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mt-6">
+        {mergedSpots.map((spot) => (
           <SpotCard key={spot.id} spot={spot} />
         ))}
       </div>
-    </>
+    </div>
   );
 }

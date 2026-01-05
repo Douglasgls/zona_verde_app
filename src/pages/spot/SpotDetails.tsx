@@ -6,379 +6,281 @@ import { PageHeader, PageHeaderHeading } from "@/components/page-header";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipTrigger, TooltipProvider, TooltipContent } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback,useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { User, Phone, Camera, RefreshCw, ShieldAlert, MapPin } from "lucide-react";
 const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+const BASE_URL_WS = import.meta.env.VITE_BASE_URL_WS;
 
-interface Client {
-  id: number;
-  name: string;
-  phone: string;
-  plate: string;
-}
+import { useWsStore } from "../Dashboard";
+import { set } from "react-hook-form";
+import { useRef } from "react";
 
-interface Spot {
-  id: number;
-  number: string;
-  sector: string;
-  status: string;
-  current_status: string;
-}
 
-interface Reservation {
-  id: number;
-  day: string;
-  client_id: number;
-  spot_id: number;
-}
-
-interface SpotsWS {
-  id: string;
-  status: string;
-  is_alert: boolean;
-  plate_ocr: string;
-  plate_db: string;
-  valid: {
-    similaridade: string;
-  };
-}
 
 export default function SpotsDetails() {
-  const [spot, setSpot] = useState<Spot | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
-  const [reservation, setReservation] = useState<Reservation | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  const [loadingTakePicture, setLoadingTakePicture] = useState(false);
-  const [loadingRefresh, setLoadingRefresh] = useState(false);
-  const [loadingImage, setLoadingImage] = useState(true);
-  const [forceKey, setForceKey] = useState(0);
-  const [lastTime, setLastTime] = useState("");
-  const [ws, setWs] = useState<SpotsWS | null>(null);
-
   const { spotId } = useParams();
   const [searchParams] = useSearchParams();
+  
+  // --- 1. ACESSO À STORE GLOBAL ---
+  const { data: wsStoreData, update: updateStore } = useWsStore();
+  const liveData = wsStoreData[Number(spotId)]; // Dados em tempo real vindos do Zustand
+
+  // --- 2. ESTADOS LOCAIS (Apenas para dados fixos da API e UI) ---
+  const [spot, setSpot] = useState<any>(null);
+  const [client, setClient] = useState<any>(null);
+  const [reservation, setReservation] = useState<any>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(true);
+  const [ignoredAlertTime, setIgnoredAlertTime] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const client_id = searchParams.get("client_id") ?? "";
   const reservation_id = searchParams.get("reservation_id") ?? "";
+  const refreshTimeoutRef = useRef(false);
 
-  // -------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR");
-  };
+  // Verifica se deve mostrar alerta (Usa dados da Store Global + LocalStorage de ignorados)
+  const shouldShowAlert = useMemo(() => {
+    return !!(liveData?.is_alert && liveData?.last_time !== ignoredAlertTime);
+  }, [liveData, ignoredAlertTime]);
 
-  const formatSpotId = (id: string | undefined) => {
-    if (!id) return "";
-    return id.padStart(2, "0");
-  };
-
-  const refreshImage = useCallback( async() => {
+  const fetchStaticData = useCallback(async () => {
     if (!spotId) return;
-
-    setLoadingRefresh(true);
-    setLoadingImage(true);
-
-    const formattedId = formatSpotId(spotId);
-
-    setForceKey(prev => prev + 1);
-
-    setImageUrl(`${BASE_URL_API}/plate/last_picture/${formattedId}?${Date.now()}`);
-
-    const res = await fetch(`${BASE_URL_API}/plate/last_picture_info/${formattedId}`);
-    const info = await res.json();
-
-    console.log(info);
-
-    setLastTime(info.timestamp);
-  }, [spotId]);
-
-
-  const SpinnerImg = () => (
-    <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-primary" />
-  );
-
-  // -------------------------------------------------------------
-  // Fetch recursos iniciais
-  // -------------------------------------------------------------
-  const fetchAllData = useCallback(async () => {
-    if (!spotId || !client_id || !reservation_id) return;
-
     try {
       const [spotRes, clientRes, reservationRes] = await Promise.all([
         fetch(`${BASE_URL_API}/spots/${spotId}`),
-        fetch(`${BASE_URL_API}/client/${client_id}`),
-        fetch(`${BASE_URL_API}/reservations/${reservation_id}`)
-      ]);
+        client_id ? fetch(`${BASE_URL_API}/client/${client_id}`) : null,
+        reservation_id ? fetch(`${BASE_URL_API}/reservations/${reservation_id}`) : null
+      ].filter(Boolean) as Promise<Response>[]);
 
       setSpot(await spotRes.json());
-      setClient(await clientRes.json());
-      setReservation(await reservationRes.json());
+      if (clientRes) setClient(await clientRes.json());
+      if (reservationRes) setReservation(await reservationRes.json());
+
     } catch (err) {
-      console.error("Erro ao buscar dados:", err);
+      console.error("Erro ao buscar dados estáticos:", err);
     }
   }, [spotId, client_id, reservation_id]);
 
-  // -------------------------------------------------------------
-  // Tirar foto
-  // -------------------------------------------------------------
-  const takePicture = async () => {
-    if (!spotId) return;
-
-    setLoadingImage(true);
-
-    try {
-      const formattedId = formatSpotId(spotId);
-
-      await fetch(`${BASE_URL_API}/plate/take_picture/${formattedId}/take_picture`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-    } catch (err) {
-      console.error("Erro ao tirar foto:", err);
-      setLoadingTakePicture(false);
-      setLoadingImage(false);
-      setImageUrl(null);
-    }
-  };
-
-  // -------------------------------------------------------------
-  // WebSocket
-  // -------------------------------------------------------------
+  // --- 4. WEBSOCKET (Atualiza a Store Global) ---
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8000/api/plate/ws");
+    const socket = new WebSocket(`${BASE_URL_WS}/plate/ws`);
 
-    ws.onmessage = async(event) => {
+    socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
-      setWs(data);
+      
+      if (data.id) {
+        updateStore(Number(data.id), data);
+      }
 
       if (data.image_url) {
         setImageUrl(`${BASE_URL_API}${data.image_url}?${Date.now()}`);
-        setLastTime(data.last_time);
         setLoadingImage(false);
-        setLoadingRefresh(false);
-        setLoadingTakePicture(false);
-      }
-
-      if (data.status) {
-        setSpot((prev) =>
-          prev ? { ...prev, current_status: data.status } : prev
-        );
       }
     };
 
-    ws.onclose = () => console.log("WebSocket desconectado");
+    console.log("WebSocket conectado para vaga", spotId);
+    console.log("DADOS WS RECEBIDOS:", wsStoreData);
 
-    return () => ws.close();
-  }, [BASE_URL_API]);
+    return () => socket.close();
+  }, [spotId, updateStore]);
 
-  // -------------------------------------------------------------
   // Inicialização
-  // -------------------------------------------------------------
   useEffect(() => {
-    fetchAllData();
-    refreshImage();
-  }, [fetchAllData, refreshImage]);
+    fetchStaticData();
+    const savedIgnore = localStorage.getItem(`ignored_alert_${spotId}`);
+    if (savedIgnore) setIgnoredAlertTime(savedIgnore);
+    
+    const data = `${BASE_URL_API}/plate/last_picture/${spotId?.padStart(2, "0")}`;
 
-  const isFree = spot?.status === "LIVRE";
-  const statusColor = isFree ? "bg-green-500" : "bg-blue-500";
+    fetch(data).then(async res => {
+      if (res.ok) {
+        setImageUrl(data);
+      } else {
+        const errorBody = await res.json();
+        setImageError(errorBody.detail);
+        setLoadingImage(false);
+        console.error("Erro ao buscar imagem:", errorBody.detail);
+      }
+    })
 
-  const formatScore = (scoreString?: string): string => {
-    if (!scoreString) return "—";
-    const score = parseFloat(scoreString);
-    if (isNaN(score)) return "—";
-    return `${(score * 100).toFixed(0)}%`;
+  }, [fetchStaticData, spotId]);
+
+  // --- 5. AÇÕES ---
+  const handleIgnoreAlert = () => {
+    if (!liveData?.last_time) return;
+    setIgnoredAlertTime(liveData.last_time);
+    localStorage.setItem(`ignored_alert_${spotId}`, liveData.last_time);
   };
 
-  // -------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------
+  const takePicture = async () => {
+    if (!spotId) return;
+    setLoadingImage(true);
+
+    const urlImageTakePicture = `${BASE_URL_API}/plate/take_picture/${spotId.padStart(2, "0")}`;
+
+    try {
+      await fetch(urlImageTakePicture, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          {
+            id: spotId
+          }
+        ),
+      });
+    } catch (e) {
+      setLoadingImage(false);
+    }
+    
+    setTimeout(() => {
+      setLoadingImage(false);
+      setImageError("Timeout ao capturar imagem");
+    }, 30000); 
+  };
+
+  const refreshImage = async () => {
+    if (!spotId) return;
+
+    if (refreshTimeoutRef.current) return;
+
+    refreshTimeoutRef.current = true;
+    setLoadingImage(true);
+    setImageError(null);
+
+    const data = `${BASE_URL_API}/plate/last_picture/${spotId.padStart(2, "0")}?${Date.now()}`;
+
+    try {
+      const res = await fetch(data);
+
+      if (res.ok) {
+        setImageUrl(data);
+      } else {
+        const errorBody = await res.json();
+        setImageError(errorBody.detail);
+        console.error("Erro ao buscar imagem:", errorBody.detail);
+      }
+    } catch (e) {
+      console.error("Erro de rede:", e);
+      setImageError("Erro de conexão");
+    } finally {
+      setLoadingImage(false);
+
+      setTimeout(() => {
+        refreshTimeoutRef.current = false;
+      }, 3000);
+    }
+  };
+
+  // --- RENDER ---
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <PageHeader>
-        <PageHeaderHeading>Gerenciamento de Vaga</PageHeaderHeading>
+        <PageHeaderHeading>Vaga {spot?.number || spotId} - Detalhes</PageHeaderHeading>
       </PageHeader>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* CARD - Detalhes da vaga */}
-        <Card className="lg:col-span-1 shadow-md">
+        
+        {/* CARD INFORMAÇÕES */}
+        <Card className="shadow-md h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-muted-foreground" />
-              <div>
-                Vaga {spot?.number} - Setor {spot?.sector}
-              </div>
+              <MapPin className="w-5 h-5 text-primary" />
+              Setor {spot?.sector}
             </CardTitle>
           </CardHeader>
-
-          <CardContent className="space-y-4">
-            {/* Status */}
+          <CardContent className="space-y-6">
             <div>
-              <h3 className="font-medium text-lg text-muted-foreground">Status Atual</h3>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge className={`${statusColor} text-white mt-2 px-3 py-1`}>
-                      {spot?.current_status}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{isFree ? "Vaga livre" : "Vaga ocupada"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <p className="text-sm text-muted-foreground mb-1">Status em Tempo Real</p>
+              <Badge className={liveData?.current_status === "LIVRE" ? "bg-green-500 text-white" : "bg-blue-600 text-white"}>
+                {liveData?.current_status || spot?.status || "---"}
+              </Badge>
             </div>
 
             <Separator />
 
-            {/* Reserva */}
-            <div>
-              <h3 className="font-medium text-lg text-muted-foreground">Reserva Atual</h3>
-
-              <div className="flex justify-between py-2 items-center">
-                <p className="text-base flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">{client?.name}</span>
-                </p>
-
-                <p className="text-sm text-muted-foreground">
-                  Reservado {formatDate(reservation?.day)}
-                </p>
+            {client && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground font-medium">Reserva</p>
+                <div className="flex items-center gap-2"><User className="w-4 h-4" /> {client.name}</div>
+                <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {client.phone}</div>
+                <Badge variant="outline" className="text-md font-mono">{client.plate}</Badge>
               </div>
+            )}
 
-              <div className="flex justify-between py-1 items-center">
-                <p className="text-sm flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  {client?.phone}
-                </p>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge className="bg-blue-600 text-white font-medium">
-                        {client?.plate}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Placa do veículo</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="font-medium text-lg">Placa Detectada (OCR)</h3>
-                <p className="text-2xl font-bold text-gray-400 tracking-wider">
-                  {ws?.plate_ocr || "—"}
-                </p>
-            </div>
             <Separator />
 
-            {/* Pontuação */}
-            <div className="space-y-1">
-              <h3 className="font-medium text-lg">Pontuação</h3>
-              <p className="text-2xl font-bold text-gray-400 tracking-wider">
-                {formatScore(ws?.valid.similaridade) || "—"}
-              </p>
-            </div>
-            
-
-            {ws?.is_alert && (
-              <div className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-center gap-2 animate-pulse">
-                <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0" />
-                <p className="text-sm text-red-700 font-medium">
-                  ALERTA: Placa OCR ({ws?.plate_ocr}) não confere com a Reserva ({ws?.plate_db || client?.plate}).
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Placa OCR</p>
+                <p className="text-2xl font-black text-foreground tracking-tighter">
+                  {liveData?.plate_ocr || "---"}
                 </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Confiança</p>
+                <p className={`text-2xl font-black ${Number(liveData?.similarity) < 60 ? 'text-red-500' : 'text-green-500'}`}>
+                  {liveData?.similarity ? `${liveData.similarity}%` : "---"}
+                </p>
+              </div>
+            </div>
+
+            {shouldShowAlert && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3 animate-pulse">
+                <div className="flex items-center gap-2 text-red-700 font-bold">
+                  <ShieldAlert className="w-5 h-5" /> ALERTA DE PLACA
+                </div>
+                <p className="text-xs text-red-600">A placa detectada não condiz com a reserva do cliente.</p>
+                <Button variant="destructive" size="sm" className="w-full" onClick={handleIgnoreAlert}>
+                  Ignorar Alerta
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* CARD - Foto */}
-        <Card className="lg:col-span-2 flex flex-col items-center justify-center shadow-md max-w-fit">
-          <CardHeader className="text-center space-y-1">
-            <CardTitle className="text-xl font-semibold flex items-center justify-center gap-2">
-              <Camera className="w-5 h-5 text-muted-foreground" />
-                Ultima Foto
-                {lastTime && (
-                  <span className="text-sm text-muted-foreground">
-                    {lastTime}
-                  </span>
-                )}
-            </CardTitle>
+        {/* CARD CÂMERA */}
+        <Card className="lg:col-span-2 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2"><Camera className="w-5 h-5" /> Monitoramento</CardTitle>
+            <span className="text-xs text-muted-foreground font-mono">{liveData?.last_time || "---"}</span>
           </CardHeader>
-
-          <CardContent className="flex flex-col items-center justify-center space-y-4 w-full">
-            <div className="w-full h-72 bg-muted rounded-xl flex items-center justify-center overflow-hidden relative">
-
+          <CardContent className="space-y-4">
+            <div className="relative flex-col aspect-video bg-muted rounded-lg overflow-hidden border">
               {loadingImage && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-xl">
-                  <SpinnerImg />
+                <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                  <RefreshCw className="w-8 h-8 animate-spin text-primary" />
                 </div>
               )}
-
               {imageUrl ? (
-                <img
-                  src={imageUrl}
-                  key={forceKey}
-                  // loading="lazy"
-                  alt="Foto da vaga"
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${
-                    loadingImage ? "opacity-0" : "opacity-100"
-                  }`}
-                  onLoad={() => {
-                    setLoadingImage(false);
-                    setLoadingRefresh(false);
-                    setLoadingTakePicture(false);
-                  }}
-                  onError={() => {
-                    setImageUrl(null);
-                    setLoadingRefresh(false);
-                    setLoadingTakePicture(false);
-                    setLoadingImage(false);
-                  }}
-                />
+                <img src={imageUrl} alt="Imagem da Vaga" className="w-full h-full object-cover" onLoad={() => setLoadingImage(false)} />
               ) : (
-                !loadingImage && (<p className="flex justify-center text-center items-center w-full h-full text-muted-foreground">Sem foto</p>)
+                  <div className="w-full h-full flex flex-col justify-center items-center text-muted-foreground italic">
+                    Sem imagem disponível
+                    <p className="text-xs p-2">{
+                      imageError}</p>
+                  </div>
               )}
             </div>
-
-            {/* Botões */}
-            <div className="flex flex-wrap gap-3 justify-center pt-4">
-              <Button
-                onClick={takePicture}
-                disabled={loadingTakePicture}
-                className="min-w-[160px] flex items-center gap-2"
-              >
-                  <Camera className="w-4 h-4" />
-                  {loadingTakePicture ? "Tirando..." : "Tirar Foto"}
-              </Button>
-
-              <Button
-                variant="secondary"
-                onClick={refreshImage}
-                disabled={loadingRefresh}
-                className="min-w-[160px] flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                {loadingRefresh ? "Atualizando..." : "Atualizar"}
-              </Button>
-
-              <Button variant="destructive" className="min-w-[160px] flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" /> Ignorar Alerta
+            
+            <div className="flex gap-3">
+              <Button 
+                onClick={takePicture} 
+                className="flex-1 gap-2">
+                  <Camera className="w-4 h-4" /> Capturar Agora
+                </Button>
+              <Button  
+                  disabled={loadingImage}
+                  variant="outline" 
+                  onClick={refreshImage}
+                  className="gap-2">
+                <RefreshCw className="w-4 h-4" /> Atualizar
               </Button>
             </div>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
