@@ -86,26 +86,7 @@ export default function SpotsDetails() {
     return () => socket.close();
   }, [spotId, updateStore]);
 
-  // Inicialização
-  useEffect(() => {
-    fetchStaticData();
-    const savedIgnore = localStorage.getItem(`ignored_alert_${spotId}`);
-    if (savedIgnore) setIgnoredAlertTime(savedIgnore);
-    
-    const data = `${BASE_URL_API}/plate/last_picture/${spotId?.padStart(2, "0")}`;
-
-    fetch(data).then(async res => {
-      if (res.ok) {
-        setImageUrl(data);
-      } else {
-        const errorBody = await res.json();
-        setImageError(errorBody.detail);
-        setLoadingImage(false);
-        console.error("Erro ao buscar imagem:", errorBody.detail);
-      }
-    })
-
-  }, [fetchStaticData, spotId]);
+ 
 
   // --- 5. AÇÕES ---
   const handleIgnoreAlert = () => {
@@ -172,6 +153,15 @@ export default function SpotsDetails() {
       }, 3000);
     }
   };
+
+
+   // Inicialização
+  useEffect(() => {
+    fetchStaticData();
+    const savedIgnore = localStorage.getItem(`ignored_alert_${spotId}`);
+    if (savedIgnore) setIgnoredAlertTime(savedIgnore);
+    refreshImage();
+  }, [fetchStaticData, spotId]);
 
   // --- RENDER ---
   return (
