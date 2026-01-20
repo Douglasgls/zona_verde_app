@@ -76,12 +76,19 @@ import { Pencil } from "lucide-react";
 
 const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
 
+interface Spot {
+  id: number;
+  number: number;
+  sector: string;
+}
+
 interface DialogEditDeviceProps {
   device: {
     id: number;
-    spot_id: number;
+    spot: Spot | null;
     onecode: string;
     topic_subscribe: string;
+    name: string;
   };
   onDeviceUpdated: () => void;
 }
@@ -130,9 +137,10 @@ export function DialogEditDevice({ device, onDeviceUpdated }: DialogEditDevicePr
 
         <DeviceForm
           defaultValues={{
-            spot_id: device.spot_id,
+            spot_id: device.spot?.id || 0,
             onecode: device.onecode,
             topic_subscribe: device.topic_subscribe,
+            name: device.name,
           }}
           onSubmit={handleSubmit}
           submitLabel="Atualizar"

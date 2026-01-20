@@ -159,7 +159,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function SpotCard({ spot }: { spot: MergedSpot }) {
   return (
-    <Card className="hover:shadow-lg hover:scale-[1.01] transition-all duration-200">
+    <Card className="hover:shadow-lg hover:scale-[1.01] transition-all duration-200 ">
       <CardHeader className="p-4">
         <div className="flex flex-col gap-2 items-start w-full">
           <CardTitle className="text-lg font-semibold leading-tight flex items-center flex-wrap gap-2">
@@ -240,7 +240,7 @@ export default function Dashboard() {
         <PageHeaderHeading>Visão Geral do Estacionamento</PageHeaderHeading>
       </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mt-6 gap-7">
         {mergedSpots.map((spot) => (
           <SpotCard key={spot.id} spot={spot} />
         ))}

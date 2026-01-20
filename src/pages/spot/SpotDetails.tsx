@@ -17,6 +17,14 @@ import { set } from "react-hook-form";
 import { useRef } from "react";
 
 
+interface Device {
+  id: number;
+  onecode: string;
+  topic_subscribe: string;
+  name: string;
+}
+
+
 
 export default function SpotsDetails() {
   const { spotId } = useParams();
@@ -99,27 +107,30 @@ export default function SpotsDetails() {
     if (!spotId) return;
     setLoadingImage(true);
 
-    const urlImageTakePicture = `${BASE_URL_API}/plate/take_picture/${spotId.padStart(2, "0")}`;
-
     try {
-      await fetch(urlImageTakePicture, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          {
-            id: spotId
-          }
-        ),
-      });
+        
+        const deviceRes = await fetch(`${BASE_URL_API}/devices/by_spot/${spotId}`);
+        if (!deviceRes.ok) throw new Error("Dispositivo não encontrado");
+        
+        const deviceData = await deviceRes.json();
+
+        const urlImageTakePicture = `${BASE_URL_API}/plate/take_picture/${deviceData.onecode}`;
+
+        await fetch(urlImageTakePicture, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+
     } catch (e) {
-      setLoadingImage(false);
+        console.error("Erro ao processar captura:", e);
+        setImageError("Falha na comunicação com o dispositivo");
+        setLoadingImage(false);
     }
-    
-    setTimeout(() => {
-      setLoadingImage(false);
-      setImageError("Timeout ao capturar imagem");
-    }, 30000); 
+
+    setTimeout(() => setLoadingImage(false), 30000);
   };
+
+
 
   const refreshImage = async () => {
     if (!spotId) return;
@@ -130,7 +141,9 @@ export default function SpotsDetails() {
     setLoadingImage(true);
     setImageError(null);
 
-    const data = `${BASE_URL_API}/plate/last_picture/${spotId.padStart(2, "0")}?${Date.now()}`;
+    // const data = `${BASE_URL_API}/plate/last_picture/${spotId.padStart(2, "0")}?${Date.now()}`; // ANTIGO
+
+    const data = `${BASE_URL_API}/plate/last_picture/${spotId}?${Date.now()}`;
 
     try {
       const res = await fetch(data);

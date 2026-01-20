@@ -127,6 +127,7 @@
 //   );
 // }
 
+// ---------------------
 "use client";
 
 import { useEffect, useState } from "react";
@@ -148,18 +149,21 @@ import { toast } from "sonner";
 
 const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
 
+interface Spot {
+  id: number;
+  number: number;
+  sector: string;
+}
+
 interface DeviceFormValues {
-  id: string;
+  id: string | number;
+  name: string;
   onecode: string;
   topic_subscribe: string;
-  spot_id: number;
+  spot: Spot | null; 
 }
 
-interface DialogViewDevicesProps {
-  device: DeviceFormValues;
-}
-
-export function DialogViewDevices({ device }: DialogViewDevicesProps) {
+export function DialogViewDevices({ device }: { device: DeviceFormValues }) {
   const [open, setOpen] = useState(false);
   const [localization, setLocalization] = useState("Carregando...");
 
@@ -186,10 +190,10 @@ export function DialogViewDevices({ device }: DialogViewDevicesProps) {
   }
 
   useEffect(() => {
-    if (open && device.spot_id) {
-      fetchSpot(device.spot_id);
+    if (open && device.spot?.id) {
+      fetchSpot(device.spot.id);
     }
-  }, [open, device.spot_id]);
+  }, [open, device.spot?.id]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -224,6 +228,17 @@ export function DialogViewDevices({ device }: DialogViewDevicesProps) {
             <Input id="id" value={device.id} readOnly className="bg-muted/30" />
           </div>
 
+
+
+          <div className="grid gap-3">
+            <Label htmlFor="localization" className="flex items-center gap-1 text-sm">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+              Nome
+            </Label>
+            <Input id="localization" value={device.name} readOnly className="bg-muted/30" />
+          </div>
+
+
           <div className="grid gap-3">
             <Label htmlFor="onecode" className="flex items-center gap-1 text-sm">
               <Hash className="w-4 h-4 text-muted-foreground" />
@@ -232,13 +247,7 @@ export function DialogViewDevices({ device }: DialogViewDevicesProps) {
             <Input id="onecode" value={device.onecode} readOnly className="bg-muted/30" />
           </div>
 
-          <div className="grid gap-3">
-            <Label htmlFor="localization" className="flex items-center gap-1 text-sm">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              Localização
-            </Label>
-            <Input id="localization" value={localization} readOnly className="bg-muted/30" />
-          </div>
+         
 
           <div className="grid gap-3">
             <Label htmlFor="mqtt_topic" className="flex items-center gap-1 text-sm">
@@ -269,3 +278,4 @@ export function DialogViewDevices({ device }: DialogViewDevicesProps) {
     </Dialog>
   );
 }
+// -----------------------

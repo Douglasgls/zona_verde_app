@@ -145,6 +145,7 @@ const deviceSchema = z.object({
   topic_subscribe: z
     .string()
     .min(3, { message: "O tópico MQTT deve ter pelo menos 3 caracteres." }),
+  name: z.string().optional(),
 });
 
 export type DeviceFormValues = z.infer<typeof deviceSchema>;
@@ -223,6 +224,20 @@ export function DeviceForm({
             {form.formState.errors.spot_id && (
               <p className="text-sm font-medium text-red-500">
                 {form.formState.errors.spot_id.message}
+              </p>
+            )}
+          </div>
+          {/* nome do dispositivo */}
+          <div className="grid gap-3">
+            <Label htmlFor="name">Nome do dispositivo</Label>
+            <Input
+              id="name"
+              placeholder="Câmera Vaga 01"
+              {...form.register("name")}
+            />
+            {form.formState.errors.name && (
+              <p className="text-sm font-medium text-red-500">
+                {form.formState.errors.name.message}
               </p>
             )}
           </div>
