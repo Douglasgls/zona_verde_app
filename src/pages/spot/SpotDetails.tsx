@@ -97,10 +97,33 @@ export default function SpotsDetails() {
  
 
   // --- 5. AÇÕES ---
-  const handleIgnoreAlert = () => {
-    if (!liveData?.last_time) return;
-    setIgnoredAlertTime(liveData.last_time);
-    localStorage.setItem(`ignored_alert_${spotId}`, liveData.last_time);
+  // const handleIgnoreAlert = () => {
+  //   if (!liveData?.last_time) return;
+  //   setIgnoredAlertTime(liveData.last_time);
+  //   localStorage.setItem(`ignored_alert_${spotId}`, liveData.last_time);
+  // };
+
+  const handleIgnoreAlert = async () => {
+    if (!liveData?.last_time || !spotId) return;
+
+    try {
+      const response = await fetch(`${BASE_URL_API}/plate/ignore_alert/${spotId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setIgnoredAlertTime(liveData.last_time);
+        localStorage.setItem(`ignored_alert_${spotId}`, liveData.last_time);
+        console.log("Alerta ignorado no servidor e MQTT enviado.");
+      } else {
+        console.error("Falha ao ignorar alerta no servidor");
+      }
+    } catch (error) {
+      console.error("Erro de rede ao ignorar alerta:", error);
+    }
   };
 
   const takePicture = async () => {
@@ -196,8 +219,15 @@ export default function SpotsDetails() {
           <CardContent className="space-y-6">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Status em Tempo Real</p>
-              <Badge className={liveData?.current_status === "LIVRE" ? "bg-green-500 text-white" : "bg-blue-600 text-white"}>
-                {liveData?.current_status || spot?.status || "---"}
+              <Badge 
+                className=
+                {
+                  (liveData?.current_status || spot?.current_status) === "LIVRE" 
+                  ? "bg-green-500 text-white" 
+                  : "bg-blue-600 text-white"
+                }
+              >
+                {liveData?.current_status || spot?.current_status || "---"}
               </Badge>
             </div>
 
