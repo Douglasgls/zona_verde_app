@@ -14,10 +14,10 @@ export const appConfig: AppConfig = {
   name: "Zona Verde App",
   github: {
     title: "Zona Verde",
-    url: "https://github.com/douglasgls/zona_verde_app",
+    url: "https://github.com/douglasgls/zona_verde_app/",
   },
   author: {
     name: "Equipe Zona Verde",
-    url: "https://github.com/douglasgls",
+    url: "https://github.com/douglasgls/",
   },
 };
