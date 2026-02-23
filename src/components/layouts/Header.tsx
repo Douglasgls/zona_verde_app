@@ -1,218 +1,133 @@
-import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { type ComponentType, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
+import {
+  CalendarCheck,
+  CarFront,
+  LayoutDashboard,
+  Menu,
+  MonitorSmartphone,
+  Users,
+  X,
+} from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { appConfig } from "@/config/app";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { mainMenu } from "@/config/menu";
-import { ChevronDownIcon, ViewVerticalIcon } from "@radix-ui/react-icons";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { Logo } from "../logo";
-import { Accordion } from "@radix-ui/react-accordion";
-import { AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
 import { ModeToggle } from "../mode-toggle";
+import { Badge } from "../ui/badge";
+
+const routeIconMap: Record<string, ComponentType<{ className?: string }>> = {
+  "/": LayoutDashboard,
+  "/clients": Users,
+  "/spots": CarFront,
+  "/devices": MonitorSmartphone,
+  "/reservations": CalendarCheck,
+};
 
 export function Header() {
-    const [open, setOpen] = useState(false)
-    const location = useLocation();
+  const [open, setOpen] = useState(false);
 
-    return (
-        <header className="supports-backdrop-blur:bg-background/60 sticky top-0 z-50 w-full border-b bg-background/90 backdrop-blur">
-            <div className="container px-4 md:px-8 flex h-14 items-center">
-                <div className="mr-4 hidden md:flex">
-                    {/* <NavLink to="/" className="mr-6 flex items-center space-x-2">
-                        <Logo /> 
-                    </NavLink> */}
-                    <nav className="flex items-center space-x-6 text-sm font-medium">
-                        {mainMenu.map((menu, index) =>
-                            menu.items !== undefined ? (
-                                <DropdownMenu key={index}>
-                                    <DropdownMenuTrigger className={cn(
-                                        "flex items-center py-1 focus:outline-none text-sm font-medium transition-colors hover:text-primary",
-                                        (menu.items.filter(subitem => subitem.to !== undefined).map(subitem => subitem.to))
-                                            .includes(location.pathname) ? 'text-foreground' : 'text-foreground/60',
-                                    )}>
-                                        {menu.title}
-                                        <ChevronDownIcon className="ml-1 -mr-1 h-3 w-3 text-muted-foreground" />
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className='w-48' align="start" forceMount>
-                                        {menu.items.map((subitem, subindex) =>
-                                            subitem.to !== undefined ? (
-                                                <NavLink key={subindex} to={subitem.to}>
-                                                    <DropdownMenuItem className={cn(
-                                                        "hover:cursor-pointer",
-                                                        { 'bg-muted': subitem.to === location.pathname }
-                                                    )}>
-                                                        {subitem.title}
-                                                    </DropdownMenuItem>
-                                                </NavLink>
-                                            ) : (
-                                                subitem.label ? (
-                                                    <DropdownMenuLabel key={subindex}>{subitem.title}</DropdownMenuLabel>
-                                                ) : (
-                                                    <DropdownMenuSeparator key={subindex} />
-                                                )
-                                            )
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : (
-                                <NavLink
-                                    key={index}
-                                    to={menu.to ?? ""}
-                                    className={({ isActive }) => cn(
-                                        "text-sm font-medium transition-colors hover:text-primary",
-                                        isActive ? "text-foreground" : "text-foreground/60"
-                                    )}>
-                                    {menu.title}
-                                </NavLink>
-                            )
-                        )}
-                    </nav>
+  const menuItems = useMemo(
+    () =>
+      mainMenu.filter((item): item is typeof item & { to: string } =>
+        Boolean(item.to)
+      ),
+    []
+  );
 
-                </div>
-                {/* mobile */}
-                <Sheet open={open} onOpenChange={setOpen}>
-                    <SheetTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            className="mr-4 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 md:hidden">
-                            <ViewVerticalIcon className="h-5 w-5" />
-                            <span className="sr-only">Toggle Menu</span>
-                        </Button>
-                        
-                    </SheetTrigger>
-                    <SheetContent side="left" className="pr-0 sm:max-w-xs">
-                        <NavLink
-                            to="/"
-                            onClick={() => setOpen(false)}
-                            className="flex items-center space-x-2">
-                            <Logo />
-                        </NavLink>
-                        <ScrollArea className="my-4 h-[calc(100vh-8rem)] ">
-                            <Accordion type="single" collapsible className="w-full" 
-                                defaultValue={"item-" + mainMenu.findIndex(item => item.items !== undefined ? item.items.filter(subitem => subitem.to !== undefined).map(subitem => subitem.to).includes(location.pathname) : false)}>
-                                <div className="flex flex-col space-y-3">
-                                    {mainMenu.map((menu, index) =>
-                                        menu.items !== undefined ? (
-                                            <AccordionItem key={index} value={`item-${index}`} className="border-b-0 pr-6">
-                                                <AccordionTrigger className={cn(
-                                                    "py-1 hover:no-underline hover:text-primary [&[data-state=open]]:text-primary",
-                                                    (menu.items.filter(subitem => subitem.to !== undefined).map(subitem => subitem.to))
-                                                        .includes(location.pathname) ? 'text-foreground' : 'text-foreground/60',
-                                                )}>
-                                                    <div className="flex">{menu.title}</div>
-                                                </AccordionTrigger>
-                                                <AccordionContent className="pb-1 pl-4">
-                                                    <div className="mt-1">
-                                                        {menu.items.map((submenu, subindex) => (
-                                                            submenu.to !== undefined ? (
-                                                                <NavLink
-                                                                    key={subindex}
-                                                                    to={submenu.to}
-                                                                    onClick={() => setOpen(false)}
-                                                                    className={({ isActive }) => cn(
-                                                                        "block justify-start py-1 h-auto font-normal hover:text-primary",
-                                                                        isActive ? 'text-foreground' : 'text-foreground/60',
-                                                                    )}>
-                                                                    {submenu.title}
-                                                                </NavLink>
-                                                            ) : (
-                                                                submenu.label !== '' ? (
-                                                                    null
-                                                                ) : (
-                                                                    <div className="px-3">
-                                                                        {/* <Separator /> */}
-                                                                    </div>
-                                                                )
-                                                            )
-                                                        ))}
-                                                    </div>
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        ) : 
-                                        (
-                                            <NavLink
-                                                key={index}
-                                                to={menu.to ?? ""}
-                                                onClick={() => setOpen(false)}
-                                                className={({ isActive }) => cn(
-                                                    "flex items-center gap-3 py-3 px-4 text-base font-medium transition-all duration-150",
-                                                    "hover:text-primary hover:bg-gray-800/30",
-                                                    isActive ? 
-                                                        "text-foreground bg-gray-800/50 border-l-4 border-primary": 
-                                                        "text-foreground/60 border-l-4 border-transparent"
-                                                )}
-                                            >
-                                                {menu.title}
-                                            </NavLink>
-                                        )
-                                    )}
-                                </div>
-                            </Accordion>
-                        </ScrollArea>
-                    </SheetContent>
-                </Sheet>
-                <a href="/" className="mr-6 flex items-center space-x-2 md:hidden">
-                    {/* <Icons.logo className="h-6 w-6" /> */}
-                    <span className="font-bold inline-block">{appConfig.name}</span>
-                </a>
-                {/* right */}
-                <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-                    <div className="w-full flex-1 md:w-auto md:flex-none">
-                        {/* <CommandMenu /> */}
-                    </div>
-                    <nav className="flex items-center space-x-2">
-                        <a
-                            href={appConfig.github.url}
-                            title={appConfig.github.title}
-                            target="_blank"
-                            rel="noreferrer">
-                            <div
-                                className={cn(
-                                    buttonVariants({
-                                        variant: "ghost",
-                                    }),
-                                    "w-9 px-0"
-                                )}>
-                            </div>
-                        </a>
-                        <ModeToggle />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant='ghost'
-                                    className='relative h-8 w-8 rounded-full'>
-                                    <Avatar className='h-8 w-8'>
-                                        <AvatarFallback>SC</AvatarFallback>
-                                    </Avatar>
-                                </Button>
-                            </DropdownMenuTrigger>                                
-                                <DropdownMenuContent className='w-56'  forceMount>
-                                    <DropdownMenuLabel className='font-normal'>
-                                        <div className='flex flex-col space-y-1'>
-                                            <p className='text-sm font-medium leading-none'>shadcn</p>
-                                            <p className='text-xs leading-none text-muted-foreground'>
-                                                m@example.com
-                                            </p>
-                                        </div>
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem>Log out</DropdownMenuItem>
-                                </DropdownMenuContent>
-                        </DropdownMenu>
-                    </nav>
-                </div>
-            </div>
-        </header>
-    )
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="container flex h-16 items-center gap-3 px-4 md:px-8">
+        <NavLink to="/" className="hidden items-center gap-2 md:flex">
+          <div className="rounded-lg border border-border/70 bg-card p-1.5 shadow-sm">
+            <Logo />
+          </div>
+        </NavLink>
+
+        <div className="hidden flex-1 items-center gap-1 md:flex">
+          {menuItems.map((menu) => {
+            const Icon = routeIconMap[menu.to] ?? LayoutDashboard;
+
+            return (
+              <NavLink
+                key={menu.to}
+                to={menu.to}
+                className={({ isActive }) =>
+                  cn(
+                    "group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "border-emerald-300 bg-emerald-100/70 text-emerald-800 shadow-sm dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
+                  )
+                }
+              >
+                <Icon className="h-4 w-4" />
+                {menu.title}
+              </NavLink>
+            );
+          })}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Badge className="hidden border-none bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 md:inline-flex">
+            Painel Operacional
+          </Badge>
+
+          <ModeToggle />
+
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Abrir menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[88%] border-border/70 bg-background/95 p-0 backdrop-blur">
+              <div className="flex items-center justify-between border-b px-4 py-4">
+                <NavLink to="/" onClick={() => setOpen(false)} className="flex items-center gap-2">
+                  <Logo />
+                </NavLink>
+                <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Fechar menu</span>
+                </Button>
+              </div>
+
+              <nav className="space-y-2 p-4">
+                {menuItems.map((menu) => {
+                  const Icon = routeIconMap[menu.to] ?? LayoutDashboard;
+
+                  return (
+                    <NavLink
+                      key={menu.to}
+                      to={menu.to}
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition-all",
+                          isActive
+                            ? "border-emerald-300 bg-emerald-100/80 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "border-border/60 bg-card/50 text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
+                        )
+                      }
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{menu.title}</span>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-auto border-t p-4 text-xs text-muted-foreground">
+                {appConfig.name}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  );
 }
