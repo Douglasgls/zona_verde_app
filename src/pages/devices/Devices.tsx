@@ -187,7 +187,7 @@ import { DialogDeleteDevices } from "./DeleteDevices";
 import { DialogViewDevices } from "./ViewDevices";
 
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Camera } from "lucide-react"; // Novos ícones sutis
+import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 
@@ -207,11 +207,7 @@ interface Device {
   spot: Spot | null;
 }
 
-interface DialogViewDevicesProps {
-  device: Device;
-}
-
-export default function Devices({ device }: DialogViewDevicesProps) {
+export default function Devices() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [refresh, setRefresh] = useState(0);
 
